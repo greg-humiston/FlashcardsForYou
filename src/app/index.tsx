@@ -1,98 +1,178 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useState } from 'react';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Link, useFocusEffect, useRouter } from 'expo-router';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { deleteDeck, getDecks } from '@/lib/storage';
+import { colors } from '@/lib/theme';
+import type { Deck } from '@/lib/types';
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const [decks, setDecks] = useState<Deck[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  const loadDecks = useCallback(() => {
+    getDecks().then((value) => {
+      setDecks(value);
+      setLoaded(true);
+    });
+  }, []);
+
+  useFocusEffect(loadDecks);
+
+  function handleDelete(deck: Deck) {
+    Alert.alert('Delete Deck', `Delete "${deck.name}"? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteDeck(deck.id);
+          loadDecks();
+        },
+      },
+    ]);
+  }
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <View style={styles.container}>
+      {loaded && decks.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No decks yet</Text>
+          <Text style={styles.emptySubtitle}>Create your first flashcard deck to get started.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={decks}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <Pressable
+                style={styles.cardMain}
+                onPress={() => router.push(`/review/${item.id}`)}
+                disabled={item.cards.length === 0}
+              >
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <Text style={styles.cardSubtitle}>
+                  {item.cards.length} card{item.cards.length === 1 ? '' : 's'}
+                </Text>
+              </Pressable>
+              <View style={styles.cardActions}>
+                <Pressable
+                  style={styles.actionButton}
+                  onPress={() => router.push(`/edit/${item.id}`)}
+                >
+                  <Text style={styles.actionText}>Edit</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.actionButton, styles.deleteButton]}
+                  onPress={() => handleDelete(item)}
+                >
+                  <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        />
+      )}
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      <Link href="/create" asChild>
+        <Pressable style={styles.fab}>
+          <Text style={styles.fabText}>+ New Deck</Text>
+        </Pressable>
+      </Link>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    backgroundColor: colors.background,
   },
-  safeArea: {
+  list: {
+    padding: 16,
+    paddingBottom: 96,
+  },
+  emptyState: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    paddingHorizontal: 32,
   },
-  title: {
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
-  code: {
-    textTransform: 'uppercase',
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  cardMain: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  deleteButton: {
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  deleteText: {
+    color: colors.danger,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    borderRadius: 28,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  fabText: {
+    color: colors.primaryText,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
