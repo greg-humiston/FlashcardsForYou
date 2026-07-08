@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/lib/theme';
@@ -13,24 +13,28 @@ const SWIPE_THRESHOLD = 60;
 
 export default function FlipCard({ question, answer, onFlipped }: FlipCardProps) {
   const rotation = useRef(new Animated.Value(0)).current;
-  const [isFlipped, setIsFlipped] = useState(false);
-  const flippedRef = useRef(false);
+  const isFlippedRef = useRef(false);
+  const isAnimatingRef = useRef(false);
 
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponderCapture: (_, gesture) =>
-        !flippedRef.current && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+        !isAnimatingRef.current && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
       onPanResponderRelease: (_, gesture) => {
-        if (flippedRef.current) return;
+        if (isAnimatingRef.current) return;
         if (Math.abs(gesture.dx) > SWIPE_THRESHOLD) {
-          flippedRef.current = true;
-          setIsFlipped(true);
+          const flipToAnswer = !isFlippedRef.current;
+          isAnimatingRef.current = true;
+          isFlippedRef.current = flipToAnswer;
           Animated.spring(rotation, {
-            toValue: 1,
+            toValue: flipToAnswer ? 1 : 0,
             useNativeDriver: true,
             friction: 8,
             tension: 10,
-          }).start(() => onFlipped());
+          }).start(() => {
+            isAnimatingRef.current = false;
+            if (flipToAnswer) onFlipped();
+          });
         }
       },
     })
@@ -63,7 +67,7 @@ export default function FlipCard({ question, answer, onFlipped }: FlipCardProps)
       >
         <Text style={styles.label}>Question</Text>
         <Text style={styles.text}>{question}</Text>
-        {!isFlipped && <Text style={styles.hint}>Swipe left or right to reveal answer</Text>}
+        <Text style={styles.hint}>Swipe left or right to reveal answer</Text>
       </Animated.View>
       <Animated.View
         style={[
@@ -74,6 +78,7 @@ export default function FlipCard({ question, answer, onFlipped }: FlipCardProps)
       >
         <Text style={styles.label}>Answer</Text>
         <Text style={styles.text}>{answer}</Text>
+        <Text style={styles.hint}>Swipe left or right to flip back</Text>
       </Animated.View>
     </View>
   );

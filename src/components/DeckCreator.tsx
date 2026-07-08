@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
@@ -10,7 +11,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 
 import { generateId, saveDeck } from '@/lib/storage';
 import { colors } from '@/lib/theme';
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: colors.primaryText,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: 15,
   },
   secondaryButton: {
@@ -294,6 +294,8 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   cancelButton: {
     marginTop: 12,
